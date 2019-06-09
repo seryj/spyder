@@ -18,11 +18,34 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QGridLayout,
                             QGroupBox, QHBoxLayout, QLabel, QLineEdit,
                             QPushButton, QRadioButton, QSpacerItem,
-                            QVBoxLayout)
+                            QVBoxLayout, QComboBox, QMessageBox)
 
 # Local imports
 from spyder.config.base import _, get_home_dir
 from spyder.config.main import CONF
+from typing import Optional
+
+
+def _falsy_to_none(arg):
+    return arg if arg else None
+
+
+def show_info_dialog(title, text):
+    """
+    Shows a modal dialog with provided title and text.
+
+    :param title: Title of the dialog.
+    :param text: Message to show.
+    :return: None
+    """
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Information)
+    msg.setText(text)
+    # msg.setInformativeText("This is additional information")
+    msg.setWindowTitle(title)
+    # msg.setDetailedText("The details are as follows:")
+    msg.setStandardButtons(QMessageBox.Ok)
+    msg.exec_()
 
 
 class KernelConnectionDialog(QDialog):
@@ -33,9 +56,14 @@ class KernelConnectionDialog(QDialog):
         self.setWindowTitle(_('Connect to an existing kernel'))
 
         main_label = QLabel(_(
-            "<p>Please select the JSON connection file (<i>e.g.</i> "
-            "<tt>kernel-1234.json</tt>) of the existing kernel, and enter "
-            "the SSH information if connecting to a remote machine. "
+            "<p>Please select a local JSON connection file (<i>e.g.</i> "
+            "<tt>kernel-1234.json</tt>) of the existing kernel.  "
+            "<br><br>"
+            "If connecting to a remote machine, enter the SSH information, "
+            "adjust the command how to get jupyter runtime directory (if needed) "
+            "push the button to fetch remote configuration files and select one "
+            "of the loaded options."
+            "<br><br>"
             "To learn more about starting external kernels and connecting "
             "to them, see <a href=\"https://docs.spyder-ide.org/"
             "ipythonconsole.html#connect-to-an-external-kernel\">"
@@ -43,6 +71,9 @@ class KernelConnectionDialog(QDialog):
         main_label.setWordWrap(True)
         main_label.setAlignment(Qt.AlignJustify)
         main_label.setOpenExternalLinks(True)
+
+        self.TEXT_FETCH_REMOTE_CONN_FILES_BTN = 'Fetch remote connection files'
+        self.DEFAULT_CMD_FOR_JUPYTER_RUNTIME = 'jupyter --runtime-dir'
 
         # Connection file
         cf_label = QLabel(_('Connection file:'))
@@ -103,6 +134,17 @@ class KernelConnectionDialog(QDialog):
         self.pw_radio.toggled.connect(kf_open_btn.setDisabled)
         self.pw_radio.toggled.connect(kfp_label.setDisabled)
 
+        # Button to fetch JSON files listing
+        self.kf_fetch_conn_files_btn = QPushButton(_(self.TEXT_FETCH_REMOTE_CONN_FILES_BTN))
+        self.kf_fetch_conn_files_btn.clicked.connect(self.fill_combobox_with_fetched_remote_connection_files)
+        self.cb_remote_conn_files = QComboBox()
+        self.cb_remote_conn_files.currentIndexChanged.connect(self._take_over_selected_remote_configuration_file)
+
+        # Advanced settings to get remote connection files
+        jupyter_runtime_location_cmd_label = QLabel(_('Command to get Jupyter runtime:'))
+        self.jupyter_runtime_location_cmd_lineedit = QLineEdit()
+        self.jupyter_runtime_location_cmd_lineedit.setPlaceholderText(_(self.DEFAULT_CMD_FOR_JUPYTER_RUNTIME))
+
         # SSH layout
         ssh_layout = QGridLayout()
         ssh_layout.addWidget(hn_label, 0, 0, 1, 2)
@@ -122,6 +164,12 @@ class KernelConnectionDialog(QDialog):
         auth_layout.addLayout(kf_layout, 2, 2)
         auth_layout.addWidget(kfp_label, 3, 1)
         auth_layout.addWidget(self.kfp, 3, 2)
+
+        auth_layout.addWidget(jupyter_runtime_location_cmd_label, 4, 1)
+        auth_layout.addWidget(self.jupyter_runtime_location_cmd_lineedit, 4, 2)
+        auth_layout.addWidget(self.kf_fetch_conn_files_btn, 5, 1)
+        auth_layout.addWidget(self.cb_remote_conn_files, 5, 2)
+
         auth_group.setLayout(auth_layout)
 
         # Remote kernel layout
@@ -159,6 +207,9 @@ class KernelConnectionDialog(QDialog):
         layout.addWidget(self.rm_group)
         layout.addLayout(btns_layout)
 
+        # List with connection file paths found on the remote host
+        self.remote_conn_file_paths = []
+
         self.load_connection_settings()
 
     def load_connection_settings(self):
@@ -172,6 +223,7 @@ class KernelConnectionDialog(QDialog):
         port = str(existing_kernel.get("port", 22))
         is_ssh_kf = existing_kernel.get("is_ssh_keyfile", False)
         ssh_kf = existing_kernel.get("ssh_key_file_path", "")
+        cmd_jupyter_runtime = existing_kernel.get("cmd_jupyter_runtime")
 
         if connection_file_path != "":
             self.cf.setText(connection_file_path)
@@ -181,6 +233,9 @@ class KernelConnectionDialog(QDialog):
             self.hn.setText(hostname)
         if ssh_kf != "":
             self.kf.setText(ssh_kf)
+        if cmd_jupyter_runtime != "":
+            self.jupyter_runtime_location_cmd_lineedit.setText(cmd_jupyter_runtime)
+
         self.rm_group.setChecked(is_remote)
         self.pn.setText(port)
         self.kf_radio.setChecked(is_ssh_kf)
@@ -213,7 +268,8 @@ class KernelConnectionDialog(QDialog):
             "hostname": self.hn.text(),
             "port": self.pn.text(),
             "is_ssh_keyfile": is_ssh_key,
-            "ssh_key_file_path": self.kf.text()
+            "ssh_key_file_path": self.kf.text(),
+            "cmd_jupyter_runtime": self.jupyter_runtime_location_cmd_lineedit.text()
         }
         CONF.set("existing-kernel", "settings", connection_settings)
 
@@ -240,6 +296,125 @@ class KernelConnectionDialog(QDialog):
                              get_home_dir(), '*.pem;;*')[0]
         self.kf.setText(kf)
 
+    def _take_over_selected_remote_configuration_file(self, chosen_idx_of_combobox_with_remote_conn_files):
+        remote_path_filename = self.remote_conn_file_paths[chosen_idx_of_combobox_with_remote_conn_files]
+        self.cf.setText(remote_path_filename)
+
+    def fill_combobox_with_fetched_remote_connection_files(self):
+        """
+        Fill the combobox with found remote connection json files.
+
+        :return: None
+        """
+        _, username, _, only_host, port, keyfile, password = KernelConnectionDialog._get_remote_config(self)
+        cmd_to_get_location_of_jupyter_runtime_files = self.jupyter_runtime_location_cmd_lineedit.text()
+        self.remote_conn_file_paths = self._fetch_connection_files_list(
+            host=only_host,
+            keyfile=keyfile,
+            password=password,
+            username=username,
+            port=port,
+            cmd_to_get_location_of_jupyter_runtime_files=cmd_to_get_location_of_jupyter_runtime_files)
+        conn_files_short = [c.rsplit('/', 1)[1] if '/' in c else c for c in self.remote_conn_file_paths]
+        self.cb_remote_conn_files.addItems(conn_files_short)
+
+    def _fetch_connection_files_list(self,
+                                     host: str,
+                                     keyfile: Optional[str],
+                                     password: Optional[str],
+                                     username: Optional[str],
+                                     port: str,
+                                     cmd_to_get_location_of_jupyter_runtime_files: Optional[str]):
+        """
+
+        :param host: URL or IP of the host.
+        :param keyfile: SSH key path or None if no key was provided.
+        :param password: Password for SSH connection or None if no password is used.
+        :rtype: List[str]
+        :return:
+        """
+        import paramiko
+        client = paramiko.SSHClient()
+        self.kf_fetch_conn_files_btn.setDisabled(True)
+        list_of_copied_connection_files = []
+        try:
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect(hostname=host,
+                           port=int(port),
+                           key_filename=keyfile,
+                           passphrase=password,
+                           username=username,
+                           timeout=10,
+                           auth_timeout=10)
+            if cmd_to_get_location_of_jupyter_runtime_files is None:
+                cmd_to_get_location_of_jupyter_runtime_files = self.DEFAULT_CMD_FOR_JUPYTER_RUNTIME
+
+            self.kf_fetch_conn_files_btn.setText('Getting location of jupyter runtime...')
+            stdin, stdout, stderr = client.exec_command(cmd_to_get_location_of_jupyter_runtime_files)
+            location_of_jupyter_runtime = stdout.readlines()
+            if len(location_of_jupyter_runtime) > 0:
+                location_of_jupyter_runtime = location_of_jupyter_runtime[0].strip()
+
+                # get absolute paths
+                stdin, stdout, stderr = client.exec_command(f'ls -d {location_of_jupyter_runtime}/*')
+                list_of_connection_files = stdout.readlines()
+
+                if len(list_of_connection_files) > 0:
+                    list_of_connection_files = [l.strip() for l in list_of_connection_files]
+
+                    import tempfile
+                    import os
+
+                    temp_dir = tempfile.gettempdir()
+                    only_filenames = [f.rsplit('/', 1)[1] for f in list_of_connection_files]
+                    list_of_copied_connection_files = [os.path.join(temp_dir, f) for f in only_filenames]
+                    self.kf_fetch_conn_files_btn.setText(
+                        f'Downloading {len(list_of_connection_files)} connection files...')
+                    for remote_path, filename_only in zip(list_of_connection_files, only_filenames):
+                        sftp = client.open_sftp()
+                        sftp.get(remote_path, os.path.join(temp_dir, filename_only))
+                    sftp.close()
+                else:
+                    show_info_dialog(
+                        "Warning",
+                        f"Could not find any jupyter configuration files in {location_of_jupyter_runtime}.")
+            else:
+                show_info_dialog(
+                    "Warning",
+                    f"Could not extract jupyter runtime location. Error from command line: {stderr.readlines()}")
+        finally:
+            client.close()
+            self.kf_fetch_conn_files_btn.setText(self.TEXT_FETCH_REMOTE_CONN_FILES_BTN)
+            self.kf_fetch_conn_files_btn.setEnabled(True)
+
+        return list_of_copied_connection_files
+
+    @staticmethod
+    def _get_remote_config(dialog):
+        only_host = None
+        username = None
+        port = '22'
+
+        if dialog.hn.text() and dialog.un.text():
+            port = dialog.pn.text() if dialog.pn.text() else '22'
+            only_host = dialog.hn.text()
+            username = dialog.un.text()
+            hostname = "{0}@{1}:{2}".format(username,
+                                            only_host,
+                                            port)
+        else:
+            hostname = None
+        if dialog.pw_radio.isChecked():
+            password = _falsy_to_none(dialog.pw.text())
+            keyfile = None
+        elif dialog.kf_radio.isChecked():
+            keyfile = _falsy_to_none(dialog.kf.text())
+            password = _falsy_to_none(dialog.kfp.text())
+        else:  # imposible?
+            keyfile = None
+            password = None
+        return dialog.cf.text(), username, hostname, only_host, port, keyfile, password
+
     @staticmethod
     def get_connection_parameters(parent=None, dialog=None):
         if not dialog:
@@ -249,28 +424,11 @@ class KernelConnectionDialog(QDialog):
         accepted = result == QDialog.Accepted
 
         if is_remote:
-            def falsy_to_none(arg):
-                return arg if arg else None
-            if dialog.hn.text() and dialog.un.text():
-                port = dialog.pn.text() if dialog.pn.text() else '22'
-                hostname = "{0}@{1}:{2}".format(dialog.un.text(),
-                                                dialog.hn.text(),
-                                                port)
-            else:
-                hostname = None
-            if dialog.pw_radio.isChecked():
-                password = falsy_to_none(dialog.pw.text())
-                keyfile = None
-            elif dialog.kf_radio.isChecked():
-                keyfile = falsy_to_none(dialog.kf.text())
-                password = falsy_to_none(dialog.kfp.text())
-            else:  # imposible?
-                keyfile = None
-                password = None
-            return (dialog.cf.text(), hostname, keyfile, password, accepted)
+            cf_text, _, hostname, _, _, keyfile, password = KernelConnectionDialog._get_remote_config(dialog)
+            return cf_text, hostname, keyfile, password, accepted
         else:
             path = dialog.cf.text()
             _dir, filename = osp.dirname(path), osp.basename(path)
             if _dir == '' and not filename.endswith('.json'):
                 path = osp.join(jupyter_runtime_dir(), 'kernel-'+path+'.json')
-            return (path, None, None, None, accepted)
+            return path, None, None, None, accepted
