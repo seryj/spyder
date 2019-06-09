@@ -18,3 +18,4 @@ numpydoc
 pyqt
 keyring
 spyder-kernels<1.0
+paramiko
