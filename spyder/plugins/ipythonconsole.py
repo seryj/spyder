@@ -507,7 +507,7 @@ class KernelConnectionDialog(QDialog):
                     temp_dir = tempfile.gettempdir()
                     only_filenames = [f.rsplit('/', 1)[1] for f in list_of_connection_files]
                     list_of_copied_connection_files = [os.path.join(temp_dir, f) for f in only_filenames]
-                    # For later: show current status of the process. For some reason it's not working like this.
+                    # TODO: For later: show current status of the process. For some reason it's not working like this.
                     # self.kf_fetch_conn_files_btn.setText(
                     #     f'Downloading {len(list_of_connection_files)} connection files...')
                     for remote_path, filename_only in zip(list_of_connection_files, only_filenames):
