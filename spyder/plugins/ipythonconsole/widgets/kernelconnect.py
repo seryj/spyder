@@ -140,6 +140,9 @@ class KernelConnectionDialog(QDialog):
         self.cb_remote_conn_files = QComboBox()
         self.cb_remote_conn_files.currentIndexChanged.connect(self._take_over_selected_remote_configuration_file)
 
+        # Remote kernel groupbox
+        self.start_remote_kernel_group = QGroupBox(_("Start remote kernel"))
+
         # Advanced settings to get remote connection files
         jupyter_runtime_location_cmd_label = QLabel(_('Command to get Jupyter runtime:'))
         self.jupyter_runtime_location_cmd_lineedit = QLineEdit()

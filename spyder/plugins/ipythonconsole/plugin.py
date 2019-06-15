@@ -52,7 +52,7 @@ from spyder.utils.programs import get_temp_dir
 from spyder.utils.misc import get_error_match, remove_backslashes
 from spyder.widgets.findreplace import FindReplace
 from spyder.plugins.ipythonconsole.widgets import ClientWidget
-from spyder.plugins.ipythonconsole.widgets import KernelConnectionDialog
+from spyder.plugins.ipythonconsole.widgets import KernelConnectionMainDialog # KernelConnectionDialog
 from spyder.widgets.browser import WebView
 from spyder.widgets.tabs import Tabs
 
@@ -709,7 +709,7 @@ class IPythonConsole(SpyderPluginWidget):
     @Slot()
     def create_client_for_kernel(self):
         """Create a client connected to an existing kernel"""
-        connect_output = KernelConnectionDialog.get_connection_parameters(self)
+        connect_output = KernelConnectionMainDialog.get_connection_parameters(self)
         (connection_file, hostname, sshkey, password, ok) = connect_output
         if not ok:
             return

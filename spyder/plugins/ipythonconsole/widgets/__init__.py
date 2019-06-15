@@ -18,6 +18,8 @@ from .help import HelpWidget
 from .namespacebrowser import NamepaceBrowserWidget
 from .figurebrowser import FigureBrowserWidget
 from .kernelconnect import KernelConnectionDialog
+from .kernelconnectmaindialog import  KernelConnectionMainDialog
+#from .kernelconnectremotekernelsetup import RemoteKernelSetupDialog
 
 # ShellWidget contains the other widgets and ClientWidget
 # contains it
