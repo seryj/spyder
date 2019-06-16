@@ -18,7 +18,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QGridLayout,
                             QGroupBox, QHBoxLayout, QLabel, QLineEdit,
                             QPushButton, QRadioButton, QSpacerItem,
-                            QVBoxLayout, QComboBox, QMessageBox)
+                            QVBoxLayout, QComboBox, QMessageBox, QListWidget)
 
 # Local imports
 from spyder.config.base import _, get_home_dir
@@ -170,11 +170,35 @@ class RemoteKernelSetupDialog(QDialog):
         btns_layout.addWidget(self.accept_btns)
 
         # Dialog layout
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout()
         layout.addSpacerItem(QSpacerItem(QSpacerItem(0, 8)))
         # layout.addSpacerItem(QSpacerItem(QSpacerItem(0, 12)))
         layout.addWidget(self.rm_group)
         layout.addLayout(btns_layout)
+
+        # Main layout
+        hbox_layout = QHBoxLayout(self)
+
+        # Left side with the list of all remote connection configurations
+        items_label = QLabel(text="Configured remote locations")
+        self.items_list = QListWidget()
+
+        items_layout = QVBoxLayout()
+        items_layout.addWidget(items_label)
+        items_layout.addWidget(self.items_list)
+        edit_delete_new_buttons_layout = QHBoxLayout()
+        edit_btn = QPushButton(text="Edit")
+        add_btn = QPushButton(text="Add")
+        delete_btn = QPushButton(text="Delete")
+        edit_delete_new_buttons_layout.addWidget(add_btn)
+        edit_delete_new_buttons_layout.addWidget(edit_btn)
+        edit_delete_new_buttons_layout.addWidget(delete_btn)
+
+        items_layout.addLayout(edit_delete_new_buttons_layout)
+
+        hbox_layout.addSpacerItem(QSpacerItem(10, 0))
+        hbox_layout.addLayout(items_layout)
+        hbox_layout.addLayout(layout)
 
     def select_ssh_key(self):
         kf = getopenfilename(self, _('Select SSH keyfile'),
