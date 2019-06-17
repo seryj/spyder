@@ -59,51 +59,51 @@ class RemoteKernelSetupDialog(QDialog):
         self.DEFAULT_CMD_FOR_JUPYTER_RUNTIME = 'jupyter --runtime-dir'
 
         # Name of the connection
-        name_label = QLabel(_('Configuration name:'))
-        self.name_line_edit = QLineEdit()
+        cfg_name_label = QLabel(_('Configuration name:'))
+        self.cfg_name_line_edit = QLineEdit()
 
         # SSH connection
-        hn_label = QLabel(_('Hostname:'))
-        self.hn = QLineEdit()
-        pn_label = QLabel(_('Port:'))
-        self.pn = QLineEdit()
-        self.pn.setMaximumWidth(75)
+        hostname_label = QLabel(_('Hostname:'))
+        self.hostname_lineedit = QLineEdit()
+        port_label = QLabel(_('Port:'))
+        self.port_lineeidt = QLineEdit()
+        self.port_lineeidt.setMaximumWidth(75)
 
-        un_label = QLabel(_('Username:'))
-        self.un = QLineEdit()
+        username_label = QLabel(_('Username:'))
+        self.username_lineedit = QLineEdit()
 
         # SSH authentication
         auth_group = QGroupBox(_("Authentication method:"))
         self.pw_radio = QRadioButton()
         pw_label = QLabel(_('Password:'))
-        self.kf_radio = QRadioButton()
-        kf_label = QLabel(_('SSH keyfile:'))
+        self.keyfile_radio = QRadioButton()
+        keyfile_label = QLabel(_('SSH keyfile:'))
 
         self.pw = QLineEdit()
         self.pw.setEchoMode(QLineEdit.Password)
         self.pw_radio.toggled.connect(self.pw.setEnabled)
-        self.kf_radio.toggled.connect(self.pw.setDisabled)
+        self.keyfile_radio.toggled.connect(self.pw.setDisabled)
 
-        self.kf = QLineEdit()
-        kf_open_btn = QPushButton(_('Browse'))
-        kf_open_btn.clicked.connect(self.select_ssh_key)
-        kf_layout = QHBoxLayout()
-        kf_layout.addWidget(self.kf)
-        kf_layout.addWidget(kf_open_btn)
+        self.keyfile_path_lineedit = QLineEdit()
+        keyfile_browse_btn = QPushButton(_('Browse'))
+        keyfile_browse_btn.clicked.connect(self.select_ssh_key)
+        keyfile_layout = QHBoxLayout()
+        keyfile_layout.addWidget(self.keyfile_path_lineedit)
+        keyfile_layout.addWidget(keyfile_browse_btn)
 
-        kfp_label = QLabel(_('Passphase:'))
-        self.kfp = QLineEdit()
-        self.kfp.setPlaceholderText(_('Optional'))
-        self.kfp.setEchoMode(QLineEdit.Password)
+        passphrase_label = QLabel(_('Passphrase:'))
+        self.passphrase_lineedit = QLineEdit()
+        self.passphrase_lineedit.setPlaceholderText(_('Optional'))
+        self.passphrase_lineedit.setEchoMode(QLineEdit.Password)
 
-        self.kf_radio.toggled.connect(self.kf.setEnabled)
-        self.kf_radio.toggled.connect(self.kfp.setEnabled)
-        self.kf_radio.toggled.connect(kf_open_btn.setEnabled)
-        self.kf_radio.toggled.connect(kfp_label.setEnabled)
-        self.pw_radio.toggled.connect(self.kf.setDisabled)
-        self.pw_radio.toggled.connect(self.kfp.setDisabled)
-        self.pw_radio.toggled.connect(kf_open_btn.setDisabled)
-        self.pw_radio.toggled.connect(kfp_label.setDisabled)
+        self.keyfile_radio.toggled.connect(self.keyfile_path_lineedit.setEnabled)
+        self.keyfile_radio.toggled.connect(self.passphrase_lineedit.setEnabled)
+        self.keyfile_radio.toggled.connect(keyfile_browse_btn.setEnabled)
+        self.keyfile_radio.toggled.connect(passphrase_label.setEnabled)
+        self.pw_radio.toggled.connect(self.keyfile_path_lineedit.setDisabled)
+        self.pw_radio.toggled.connect(self.passphrase_lineedit.setDisabled)
+        self.pw_radio.toggled.connect(keyfile_browse_btn.setDisabled)
+        self.pw_radio.toggled.connect(passphrase_label.setDisabled)
 
         # Button to fetch JSON files listing
         # self.kf_fetch_conn_files_btn = QPushButton(_(self.TEXT_FETCH_REMOTE_CONN_FILES_BTN))
@@ -121,26 +121,26 @@ class RemoteKernelSetupDialog(QDialog):
 
         # SSH layout
         ssh_layout = QGridLayout()
-        ssh_layout.addWidget(name_label, 0, 0)
-        ssh_layout.addWidget(self.name_line_edit, 0, 2)
+        ssh_layout.addWidget(cfg_name_label, 0, 0)
+        ssh_layout.addWidget(self.cfg_name_line_edit, 0, 2)
 
-        ssh_layout.addWidget(hn_label, 1, 0, 1, 2)
-        ssh_layout.addWidget(self.hn, 1, 2)
-        ssh_layout.addWidget(pn_label, 1, 3)
-        ssh_layout.addWidget(self.pn, 1, 4)
-        ssh_layout.addWidget(un_label, 2, 0, 1, 2)
-        ssh_layout.addWidget(self.un, 2, 2, 1, 3)
+        ssh_layout.addWidget(hostname_label, 1, 0, 1, 2)
+        ssh_layout.addWidget(self.hostname_lineedit, 1, 2)
+        ssh_layout.addWidget(port_label, 1, 3)
+        ssh_layout.addWidget(self.port_lineeidt, 1, 4)
+        ssh_layout.addWidget(username_label, 2, 0, 1, 2)
+        ssh_layout.addWidget(self.username_lineedit, 2, 2, 1, 3)
 
         # SSH authentication layout
         auth_layout = QGridLayout()
         auth_layout.addWidget(self.pw_radio, 1, 0)
         auth_layout.addWidget(pw_label, 1, 1)
         auth_layout.addWidget(self.pw, 1, 2)
-        auth_layout.addWidget(self.kf_radio, 2, 0)
-        auth_layout.addWidget(kf_label, 2, 1)
-        auth_layout.addLayout(kf_layout, 2, 2)
-        auth_layout.addWidget(kfp_label, 3, 1)
-        auth_layout.addWidget(self.kfp, 3, 2)
+        auth_layout.addWidget(self.keyfile_radio, 2, 0)
+        auth_layout.addWidget(keyfile_label, 2, 1)
+        auth_layout.addLayout(keyfile_layout, 2, 2)
+        auth_layout.addWidget(passphrase_label, 3, 1)
+        auth_layout.addWidget(self.passphrase_lineedit, 3, 2)
 
         auth_layout.addWidget(jupyter_runtime_location_cmd_label, 4, 1)
         auth_layout.addWidget(self.jupyter_runtime_location_cmd_lineedit, 4, 2)
@@ -151,6 +151,7 @@ class RemoteKernelSetupDialog(QDialog):
 
         # Remote kernel layout
         self.rm_group = QGroupBox(_("Setup up of a remote connection"))
+        self.rm_group.setEnabled(False)
         rm_layout = QVBoxLayout()
         rm_layout.addLayout(ssh_layout)
         rm_layout.addSpacerItem(QSpacerItem(QSpacerItem(0, 8)))
@@ -182,6 +183,7 @@ class RemoteKernelSetupDialog(QDialog):
         # Left side with the list of all remote connection configurations
         items_label = QLabel(text="Configured remote locations")
         self.items_list = QListWidget()
+        self.items_list.clicked.connect(self._on_items_list_click)
 
         items_layout = QVBoxLayout()
         items_layout.addWidget(items_label)
@@ -190,6 +192,11 @@ class RemoteKernelSetupDialog(QDialog):
         edit_btn = QPushButton(text="Edit")
         add_btn = QPushButton(text="Add")
         delete_btn = QPushButton(text="Delete")
+
+        add_btn.clicked.connect(self._on_add_btn_click)
+        edit_btn.clicked.connect(self._on_edit_btn_click)
+        delete_btn.clicked.connect(self._on_delete_btn_click)
+
         edit_delete_new_buttons_layout.addWidget(add_btn)
         edit_delete_new_buttons_layout.addWidget(edit_btn)
         edit_delete_new_buttons_layout.addWidget(delete_btn)
@@ -200,11 +207,103 @@ class RemoteKernelSetupDialog(QDialog):
         hbox_layout.addLayout(items_layout)
         hbox_layout.addLayout(layout)
 
+        self.lst_with_connecion_configs = []
+
+    def _on_items_list_click(self):
+        from .kernelconnectmaindialog import LocalConnectionSettings, RemoteConnectionSettings
+        idx_of_config = self.items_list.selectedIndexes()[0].row()
+        cfg = self.lst_with_connecion_configs[idx_of_config]
+        if isinstance(cfg, RemoteConnectionSettings):
+            self._update_remote_connection_input_fields(cfg)
+        else:
+            show_info_dialog("Information", "This functionality is still not available")
+
+    def _clear_remote_connection_input_fields(self):
+        self.keyfile_path_lineedit.setText("")
+        self.passphrase_lineedit.setText("")
+        self.hostname_lineedit.setText("")
+        self.username_lineedit.setText("")
+        self.port_lineeidt.setText("")
+        self.cfg_name_line_edit.setText("")
+        self.jupyter_runtime_location_cmd_lineedit.setText("")
+
+        self.keyfile_radio.setChecked(False)
+        self.pw_radio.setChecked(False)
+
+    def _update_remote_connection_input_fields(self, remote_conn_settings):
+        self.keyfile_path_lineedit.setText(remote_conn_settings.keyfile_path)
+        self.passphrase_lineedit.setText(remote_conn_settings.password)
+        self.hostname_lineedit.setText(remote_conn_settings.hostname)
+        self.username_lineedit.setText(remote_conn_settings.username)
+        self.port_lineeidt.setText(str(remote_conn_settings.port))
+        self.cfg_name_line_edit.setText(remote_conn_settings.connection_name)
+        self.jupyter_runtime_location_cmd_lineedit.setText(remote_conn_settings.cmd_for_jupyter_runtime_location)
+
+        self.keyfile_radio.setChecked(remote_conn_settings.keyfile_path is not None)
+        self.pw_radio.setChecked(remote_conn_settings.password is not None)
+
+    def _on_add_btn_click(self):
+        from .kernelconnectmaindialog import LocalConnectionSettings, RemoteConnectionSettings
+
+        username = self.username_lineedit.text()
+        passphrase = self.passphrase_lineedit.text()
+        hostname = self.hostname_lineedit.text()
+        keyfile_path = self.keyfile_path_lineedit.text()
+        port = int(self.port_lineeidt.text()) if self.port_lineeidt.text() != "" else 22
+        jup_runtime_cmd = self.jupyter_runtime_location_cmd_lineedit.text()
+        cfg_name = self.cfg_name_line_edit.text()
+
+        cfg = RemoteConnectionSettings(
+            username=username,
+            hostname=hostname,
+            keyfile_path=keyfile_path,
+            port=port,
+            connection_name=cfg_name,
+            cmd_for_jupyter_runtime_location=jup_runtime_cmd,
+            password=passphrase
+        )
+
+        self.lst_with_connecion_configs.append(cfg)
+        self._update_list_with_configs()
+        self.rm_group.setEnabled(False)
+
+    def _on_edit_btn_click(self):
+        from .kernelconnectmaindialog import LocalConnectionSettings, RemoteConnectionSettings
+        self.rm_group.setEnabled(True)
+        idx_of_config = self.items_list.selectedIndexes()[0].row()
+        cfg = self.lst_with_connecion_configs[idx_of_config]
+        if isinstance(cfg, RemoteConnectionSettings):
+            self._update_remote_connection_input_fields(cfg)
+        else:
+            show_info_dialog("Information", "This functionality is still not available")
+
+    def _on_delete_btn_click(self):
+        idx_of_config = self.items_list.selectedIndexes()[0].row()
+        self.lst_with_connecion_configs.pop(idx_of_config)
+        self._update_list_with_configs()
+
     def select_ssh_key(self):
         kf = getopenfilename(self, _('Select SSH keyfile'),
                              get_home_dir(), '*.pem;;*')[0]
-        self.kf.setText(kf)
+        self.keyfile_path_lineedit.setText(kf)
 
     def _take_over_selected_remote_configuration_file(self, chosen_idx_of_combobox_with_remote_conn_files):
         remote_path_filename = self.remote_conn_file_paths[chosen_idx_of_combobox_with_remote_conn_files]
         self.cf.setText(remote_path_filename)
+
+    def set_connection_configs(self, lst_with_connecion_configs):
+        self.lst_with_connecion_configs = lst_with_connecion_configs
+        self._update_list_with_configs()
+
+    def _update_list_with_configs(self):
+        from .kernelconnectmaindialog import LocalConnectionSettings, RemoteConnectionSettings
+        # now, fill the list
+        self.items_list.clear()
+        for cfg in self.lst_with_connecion_configs:
+            if isinstance(cfg, LocalConnectionSettings):
+                self.items_list.addItem(f"Local: {cfg.connection_name}")
+            elif isinstance(cfg, RemoteConnectionSettings):
+                self.items_list.addItem(f"Remote: {cfg.connection_name}")
+
+    def get_connection_settings(self):
+        return self.lst_with_connecion_configs

@@ -13,6 +13,7 @@ import os.path as osp
 
 # Third party imports
 from jupyter_core.paths import jupyter_runtime_dir
+from paramiko.ssh_exception import NoValidConnectionsError
 from qtpy.compat import getopenfilename
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QGridLayout,
@@ -32,7 +33,8 @@ import glob
 import json
 import tempfile
 
-from spyder.plugins.ipythonconsole.widgets.kernelconnectremotekernelsetup import RemoteKernelSetupDialog
+#from spyder.plugins.ipythonconsole.widgets.kernelconnectremotekernelsetup import RemoteKernelSetupDialog
+from .kernelconnectremotekernelsetup import RemoteKernelSetupDialog
 
 TEXT_FETCH_REMOTE_CONN_FILES_BTN = 'Fetch remote connection files'
 DEFAULT_CMD_FOR_JUPYTER_RUNTIME = 'jupyter --runtime-dir'
@@ -64,7 +66,12 @@ class LocalConnectionSettings:
     def __init__(self, directory: str = None, filename: str = None, connection_name: str = None):
         self.directory = directory
         self.filename = filename
-        self.connection_name = 'unnamed local'
+        self.connection_name = connection_name
+
+        if connection_name is None:
+            self.connection_name = directory
+            if filename is not None:
+                self.connection_name = os.path.join(directory, filename)
 
     def to_json(self):
         return {
@@ -76,21 +83,21 @@ class LocalConnectionSettings:
     def from_json(self, js_settings: dict):
         self.directory = js_settings['directory']
         self.filename = js_settings['filename']
-        self.connection_name = js_settings['connection_name']
+        self.connection_name = js_settings['connection_name'] if 'connection_name' in js_settings.keys() else js_settings['name']
         return self
 
 
 class RemoteConnectionSettings:
     def __init__(self, username: str = None, hostname: str = None,
                  port: int = 22, password: str = None, keyfile_path: str = None,
-                 name: str = None,
+                 connection_name: str = None,
                  cmd_for_jupyter_runtime_location: str = None):
         self.username = username
         self.hostname = hostname
         self.port = port
         self.keyfile_path = keyfile_path
         self.password = password
-        self.name = self.hostname if name is None else name
+        self.connection_name = self.hostname if connection_name is None else connection_name
         self.cmd_for_jupyter_runtime_location = \
             DEFAULT_CMD_FOR_JUPYTER_RUNTIME if cmd_for_jupyter_runtime_location is None \
                 else cmd_for_jupyter_runtime_location
@@ -102,7 +109,7 @@ class RemoteConnectionSettings:
             'port': self.port,
             'keyfile_path': self.keyfile_path,
             'password': self.password,
-            'name': self.name,
+            'connection_name': self.connection_name,
             'cmd_for_jupyter_runtime_location': self.cmd_for_jupyter_runtime_location,
         }
 
@@ -112,7 +119,7 @@ class RemoteConnectionSettings:
         self.port = js_settings['port']
         self.keyfile_path = js_settings['keyfile_path']
         self.password = js_settings['password']
-        self.name = js_settings['name']
+        self.connection_name = self.connection_name = js_settings['connection_name'] if 'connection_name' in js_settings.keys() else js_settings['name']
         self.cmd_for_jupyter_runtime_location = js_settings['cmd_for_jupyter_runtime_location']
         return self
 
@@ -182,7 +189,7 @@ class FetchConnectionFilesThread(QThread):
                                                                   conn_setting.cmd_for_jupyter_runtime_location)
 
                 for js_file in fetched_files:
-                    file_locations.append({'type': 'remote', 'conn_setting_name': conn_setting.name,'path': js_file, 'connection_settings_obj': conn_setting.to_json()})
+                    file_locations.append({'type': 'remote', 'conn_setting_name': conn_setting.connection_name, 'path': js_file, 'connection_settings_obj': conn_setting.to_json()})
 
         self.signal.emit(json.dumps(file_locations))
 
@@ -252,6 +259,10 @@ class FetchConnectionFilesThread(QThread):
                 show_info_dialog(
                     "Warning",
                     f"Could not extract jupyter runtime location. Error from command line: {stderr.readlines()}")
+
+        except NoValidConnectionsError as e:
+            show_info_dialog("Error", f"Could not connect to hostname {host}")
+
         finally:
             client.close()
 
@@ -279,16 +290,16 @@ class KernelConnectionMainDialog(QDialog):
         cf_label = QLabel(_('Select kernel:'))
         self.cf = QComboBox()
         self.cf.setMinimumWidth(350)
-        self.config_local_kernels_btn = QPushButton(_('Configure local kernels'))
-        self.config_remote_kernels_btn = QPushButton(_('Configure remote kernels'))
+        self.fetch_kernels_btn = QPushButton(_('Fetch kernels'))
+        self.config_remote_kernels_btn = QPushButton(_('Configure kernel locations'))
 
-        self.config_local_kernels_btn.clicked.connect(self.configure_local_kernels_dialog)
+        self.fetch_kernels_btn.clicked.connect(self._fetch_kernels)
         self.config_remote_kernels_btn.clicked.connect(self.configure_remote_kernels_dialog)
 
         cf_layout = QHBoxLayout()
         cf_layout.addWidget(cf_label)
         cf_layout.addWidget(self.cf)
-        cf_layout.addWidget(self.config_local_kernels_btn)
+        cf_layout.addWidget(self.fetch_kernels_btn)
         cf_layout.addWidget(self.config_remote_kernels_btn)
 
         # Ok and Cancel buttons
@@ -321,12 +332,7 @@ class KernelConnectionMainDialog(QDialog):
 
         self.load_connection_settings()
 
-        self.fetch_thread = FetchConnectionFilesThread()
-        self.fetch_thread.signal.connect(self._finished_fetching_remote_files)
-        self.fetch_thread.connection_settings_list = self.connection_settings_list
-        self.cf.setEnabled(False)
-        self.setWindowTitle("...Fetching connection files from all configured locations...")
-        self.fetch_thread.start()  # Finally starts the thread
+        self.fetch_thread = None
 
     def _finished_fetching_remote_files(self, conn_files_as_json):
         conn_files_as_dict = json.loads(conn_files_as_json)
@@ -386,12 +392,19 @@ class KernelConnectionMainDialog(QDialog):
                              jupyter_runtime_dir(), '*.json;;*.*')[0]
         self.cf.setText(cf)
 
-    def configure_local_kernels_dialog(self):
-        pass
+    def _fetch_kernels(self):
+        self.fetch_thread = FetchConnectionFilesThread()
+        self.fetch_thread.signal.connect(self._finished_fetching_remote_files)
+        self.fetch_thread.connection_settings_list = self.connection_settings_list
+        self.cf.setEnabled(False)
+        self.setWindowTitle("...Fetching connection files from all configured locations...")
+        self.fetch_thread.start()  # Finally starts the thread
 
     def configure_remote_kernels_dialog(self):
         remote_dialog = RemoteKernelSetupDialog()
+        remote_dialog.set_connection_configs(self.connection_settings_list)
         remote_dialog.exec_()
+        self.connection_settings_list = remote_dialog.get_connection_settings()
 
     @staticmethod
     def get_connection_parameters(parent=None, dialog=None):
